@@ -1,18 +1,14 @@
-README nên ghi rõ project
-
-Bạn nên sửa README.md thành kiểu này:
-
 # UDM10 - TCP Chat Console
 
-Console chat application using TCP protocol.
+Console chat application using TCP.
 
-Features:
+## Features
 - Login to server
 - List connected clients
 - Send message to another client
-- Command line interface
 
-Commands:
+## Commands
+
 /login username
 /list
 /msg username message
