@@ -1,30 +1,43 @@
-# UDM10 TCP Chat Application
+# TCP Chat Application
+
+Simple TCP Chat Application using Python.
 
 ## Author
-Hoang Dinh Phung - Group 7
+Hoàng Đình Phùng
 
-## Description
-This project implements a simple TCP Chat application using Python.
+## Project Structure
 
-## Features
-- TCP Server
-- Multiple clients connection
-- List online users
-- Send message to specific user
-- Logout command
+Code/
+- server.py
+- client.py
 
-## Files
-- server.py : TCP server
-- client.py : chat client
-- report.docx : project report
+Extra/
+- server_run.png
 
-## Run
+## How to Run
 
-### Start server
+### Run Server
+
+cd Code
 python server.py
 
-### Start client
+Server will run at:
+
+127.0.0.1:5000
+
+### Run Client
+
+Open another terminal:
+
+cd Code
 python client.py
+
+## Commands
+
+/list      -> show online users  
+/msg user  -> send message  
+/exit      -> exit chat  
+
 ## Server Running
 
-![Server](Extra/server_run.png)
+![Server Running](Extra/server_run.png)
