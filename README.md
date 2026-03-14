@@ -25,3 +25,6 @@ python server.py
 
 ### Start client
 python client.py
+## Server Running
+
+![Server](Extra/server_run.png)
