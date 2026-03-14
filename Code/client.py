@@ -18,12 +18,14 @@ def receive_messages(sock):
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(("127.0.0.1", 5000))  # phải trùng với port server
+    sock.connect(("127.0.0.1", 12345))
+
+    username = input("Enter username: ").strip()
+    sock.send(username.encode())
+    print(sock.recv(1024).decode())
 
     threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
 
-    print("Commands: /login <username> | /list | /msg <user> <message> | /all <message> | /exit")
-    
     while True:
         msg = input()
         if msg.lower() == "/exit":
