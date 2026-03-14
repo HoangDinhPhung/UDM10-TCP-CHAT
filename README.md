@@ -1,36 +1,27 @@
-# UDM10-TCP-CHAT
+# UDM10 TCP Chat Application
 
-## Project code
-UDM10-TCP-CHAT
+## Author
+Hoang Dinh Phung - Group 7
 
-## Group members
-064205007188 – Hoàng Đình Phùng
-089205007902 – Bùi Tấn Nam
-075205015059 – Trương Phúc Toàn
-075206004733 – Nguyễn Công Thành
-083206000919 – Võ Duy Khang
-(MSSV) – Cao Anh Đức
+## Description
+This project implements a simple TCP Chat application using Python.
 
 ## Features
-- Login with unique username
+- TCP Server
+- Multiple clients connection
 - List online users
-- Chat 1-1
-- Logout
-- TCP socket communication
+- Send message to specific user
+- Logout command
 
-## Commands
-- `/login username`
-- `/list`
-- `/msg username message`
-- `/exit`
+## Files
+- server.py : TCP server
+- client.py : chat client
+- report.docx : project report
 
-## How to run
-1. Run server: `python server.py`
-2. Run client: `python client.py`
-3. Open multiple client terminals to chat
+## Run
 
-## Notes
-- Make sure each client username is unique
-- Use `/list` to see online users
-- Use `/msg <username> <message>` to chat 1-1
-- Use `/exit` to logout
+### Start server
+python server.py
+
+### Start client
+python client.py
