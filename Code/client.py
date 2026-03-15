@@ -1,37 +1,44 @@
-# client.py
-# TCP Chat Client – Human Write Version
-# Author: Hoàng Đình Phùng
-# UDM-10 Project
-
 import socket
 import threading
+
+HOST = "127.0.0.1"
+PORT = 5000
 
 def receive_messages(sock):
     while True:
         try:
-            msg = sock.recv(1024).decode()
-            if not msg:
+            message = sock.recv(1024).decode()
+            if not message:
                 break
-            print(msg)
+            print(message)
+        except:
+            print("Disconnected from server")
+            sock.close()
+            break
+
+
+def send_messages(sock):
+    while True:
+        try:
+            message = input()
+            sock.send(message.encode())
+
+            if message == "/exit":
+                sock.close()
+                break
         except:
             break
 
-def main():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(("127.0.0.1", 12345))
 
-    username = input("Enter username: ").strip()
-    sock.send(username.encode())
-    print(sock.recv(1024).decode())
+def start_client():
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect((HOST, PORT))
 
-    threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
+    receive_thread = threading.Thread(target=receive_messages, args=(client,))
+    receive_thread.start()
 
-    while True:
-        msg = input()
-        if msg.lower() == "/exit":
-            sock.send("/exit".encode())
-            break
-        sock.send(msg.encode())
+    send_messages(client)
+
 
 if __name__ == "__main__":
-    main()
+    start_client()

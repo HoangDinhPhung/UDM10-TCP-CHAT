@@ -1,72 +1,91 @@
-# server.py
-# Author: Hoàng Đình Phùng Nhóm 7
-
-# UDM-10 Project
-
 import socket
 import threading
+
+HOST = "127.0.0.1"
+PORT = 5000
 
 clients = {}
 lock = threading.Lock()
 
+def broadcast(message, sender=None):
+    for client, name in clients.items():
+        if name != sender:
+            try:
+                client.send(message.encode())
+            except:
+                client.close()
+
 def handle_client(conn, addr):
     try:
-        conn.send("Enter your username: ".encode())
+        conn.send("Enter username: ".encode())
         username = conn.recv(1024).decode().strip()
 
         with lock:
-            if username in clients:
-                conn.send("Username already taken. Disconnecting.".encode())
-                conn.close()
-                return
-            clients[username] = conn
+            clients[conn] = username
 
-        conn.send(f"Welcome {username}! Type /exit to logout.".encode())
-        print(f"{username} has connected from {addr}")
+        print(f"{username} connected from {addr}")
+
+        conn.send(f"Welcome {username}!\n".encode())
 
         while True:
-            data = conn.recv(1024).decode().strip()
-            if not data:
+            msg = conn.recv(1024).decode()
+
+            if not msg:
                 break
 
-            if data.lower() == "/exit":
-                break
-            elif data.lower() == "/list":
-                online_users = ", ".join(clients.keys())
-                conn.send(f"Online users: {online_users}".encode())
-            elif data.startswith("/msg"):
-                parts = data.split()
+            if msg.startswith("/list"):
+                user_list = ", ".join(clients.values())
+                conn.send(f"Online users: {user_list}\n".encode())
+
+            elif msg.startswith("/msg"):
+                parts = msg.split(" ", 2)
                 if len(parts) < 3:
-                    conn.send("Usage: /msg username message".encode())
+                    conn.send("Usage: /msg <user> <message>\n".encode())
                     continue
+
                 target_user = parts[1]
-                message = " ".join(parts[2:])
-                with lock:
-                    if target_user in clients:
-                        clients[target_user].send(f"{username}: {message}".encode())
-                        conn.send(f"Message sent to {target_user}".encode())
-                    else:
-                        conn.send(f"User {target_user} not found.".encode())
+                message = parts[2]
+
+                found = False
+                for client, name in clients.items():
+                    if name == target_user:
+                        client.send(f"[{username}] {message}\n".encode())
+                        found = True
+                        break
+
+                if not found:
+                    conn.send("User not found\n".encode())
+
+            elif msg.startswith("/exit"):
+                break
+
             else:
-                conn.send("Unknown command. Use /list, /msg, /exit".encode())
+                broadcast(f"[{username}] {msg}", username)
+
+    except:
+        pass
+
     finally:
         with lock:
-            if username in clients:
-                del clients[username]
-        conn.close()
-        print(f"{username} has disconnected.")
+            if conn in clients:
+                print(f"{clients[conn]} disconnected")
+                del clients[conn]
 
-def main():
-    host = "127.0.0.1"
-    port = 5000
+        conn.close()
+
+
+def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((host, port))
+    server.bind((HOST, PORT))
     server.listen()
-    print(f"Server is running on {host}:{port}")
+
+    print(f"Server is running on {HOST}:{PORT}")
 
     while True:
         conn, addr = server.accept()
-        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+        thread = threading.Thread(target=handle_client, args=(conn, addr))
+        thread.start()
+
 
 if __name__ == "__main__":
-    main()
+    start_server() # TODO: improve input validation
