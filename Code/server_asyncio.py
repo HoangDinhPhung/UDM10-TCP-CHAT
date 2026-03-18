@@ -22,10 +22,9 @@ async def handle_client(reader, writer):
     writer.write("Enter username:\n".encode())
     await writer.drain()
 
-    # ✅ FIX read
     username = (await reader.readline()).decode().strip().lower()
 
-    # ✅ check trùng
+    # check trùng username
     if username in clients.values():
         writer.write("Username already taken\n".encode())
         await writer.drain()
@@ -40,7 +39,7 @@ async def handle_client(reader, writer):
     writer.write(f"Welcome {username}!\n".encode())
     await writer.drain()
 
-    # ✅ bonus điểm
+    # thông báo join
     await broadcast(f"{username} joined the chat\n", username)
 
     try:
@@ -99,7 +98,7 @@ async def handle_client(reader, writer):
         if writer in clients:
             del clients[writer]
 
-        # ✅ bonus điểm
+        # thông báo rời
         await broadcast(f"{username} left the chat\n", username)
 
         writer.close()
