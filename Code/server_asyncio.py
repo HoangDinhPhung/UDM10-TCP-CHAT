@@ -1,115 +1,129 @@
 import asyncio
 
-HOST = "127.0.0.1"
-PORT = 5000
+clients = {}  # {writer: username}
 
-clients = {}
 
-async def broadcast(message, sender=None):
-    for writer, name in list(clients.items()):
-        if name != sender:
-            try:
-                writer.write(message.encode())
-                await writer.drain()
-            except:
-                writer.close()
-                if writer in clients:
-                    del clients[writer]
-
-async def handle_client(reader, writer):
-    addr = writer.get_extra_info("peername")
-
-    writer.write("Enter username:\n".encode())
+# ================= LOGIN =================
+async def login(reader, writer):
+    writer.write("Enter username: ".encode())
     await writer.drain()
 
-    username = (await reader.readline()).decode().strip().lower()
-
-    # check trùng username
-    if username in clients.values():
-        writer.write("Username already taken\n".encode())
-        await writer.drain()
-        writer.close()
-        await writer.wait_closed()
-        return
+    data = await reader.readline()
+    username = data.decode().strip()
 
     clients[writer] = username
 
-    print(f"{username} connected from {addr}")
+    print(f"[LOGIN] {username}")
+    await broadcast(f"[SERVER] {username} joined\n", writer)
 
-    writer.write(f"Welcome {username}!\n".encode())
-    await writer.drain()
+    return username
 
-    # thông báo join
-    await broadcast(f"{username} joined the chat\n", username)
+
+# ================= BROADCAST =================
+async def broadcast(message, sender_writer=None):
+    for writer in list(clients.keys()):
+        try:
+            if writer != sender_writer:
+                writer.write(message.encode())
+                await writer.drain()
+        except:
+            # client chết
+            await disconnect(writer)
+
+
+# ================= COMMAND HANDLER =================
+async def handle_command(message, writer):
+    username = clients.get(writer)
+
+    # /list
+    if message == "/list":
+        user_list = ", ".join(clients.values())
+        writer.write(f"[SERVER] Online: {user_list}\n".encode())
+        await writer.drain()
+
+    # /msg user message
+    elif message.startswith("/msg"):
+        parts = message.split(" ", 2)
+        if len(parts) < 3:
+            writer.write("[SERVER] Usage: /msg <user> <message>\n".encode())
+            await writer.drain()
+            return
+
+        target_user = parts[1]
+        msg = parts[2]
+
+        for w, u in clients.items():
+            if u == target_user:
+                w.write(f"[PM] {username}: {msg}\n".encode())
+                await w.drain()
+                return
+
+        writer.write("[SERVER] User not found\n".encode())
+        await writer.drain()
+
+    # /exit
+    elif message == "/exit":
+        await disconnect(writer)
+
+    else:
+        writer.write("[SERVER] Unknown command\n".encode())
+        await writer.drain()
+
+
+# ================= DISCONNECT =================
+async def disconnect(writer):
+    username = clients.get(writer, "Unknown")
+
+    if writer in clients:
+        del clients[writer]
+
+    print(f"[DISCONNECT] {username}")
 
     try:
+        writer.close()
+        await writer.wait_closed()
+    except:
+        pass
+
+    await broadcast(f"[SERVER] {username} left\n")
+
+
+# ================= HANDLE CLIENT =================
+async def handle_client(reader, writer):
+    try:
+        username = await login(reader, writer)
+
         while True:
-            data = await reader.read(1024)
+            data = await reader.readline()
+
             if not data:
                 break
 
-            msg = data.decode().strip()
+            message = data.decode().strip()
 
-            if msg.startswith("/list"):
-                user_list = ", ".join(clients.values())
-                writer.write(f"Online users: {user_list}\n".encode())
-                await writer.drain()
-
-            elif msg.startswith("/msg"):
-                parts = msg.split(" ", 2)
-
-                if len(parts) < 3:
-                    writer.write("Usage: /msg <user> <message>\n".encode())
-                    await writer.drain()
-                    continue
-
-                target_user = parts[1].lower()
-                message = parts[2]
-
-                if target_user == username:
-                    writer.write("Cannot message yourself\n".encode())
-                    await writer.drain()
-                    continue
-
-                found = False
-                for w, name in clients.items():
-                    if name == target_user:
-                        w.write(f"[{username}] {message}\n".encode())
-                        await w.drain()
-                        found = True
-                        break
-
-                if not found:
-                    writer.write("User not found\n".encode())
-                    await writer.drain()
-
-            elif msg.startswith("/exit"):
-                break
-
+            # COMMAND
+            if message.startswith("/"):
+                await handle_command(message, writer)
             else:
-                await broadcast(f"[{username}] {msg}\n", username)
+                # NORMAL CHAT
+                await broadcast(f"[{username}] {message}\n", writer)
 
     except Exception as e:
-        print("Error:", e)
+        print(f"[ERROR] {e}")
 
     finally:
-        print(f"{username} disconnected")
+        await disconnect(writer)
 
-        if writer in clients:
-            del clients[writer]
 
-        # thông báo rời
-        await broadcast(f"{username} left the chat\n", username)
-
-        writer.close()
-        await writer.wait_closed()
-
+# ================= MAIN =================
 async def main():
-    server = await asyncio.start_server(handle_client, HOST, PORT)
+    server = await asyncio.start_server(handle_client, "127.0.0.1", 5000)
 
-    print(f"Server running on {HOST}:{PORT}")
+    print("[SERVER] Running on 127.0.0.1:5000")
 
     async with server:
         await server.serve_forever()
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
