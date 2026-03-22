@@ -1,5 +1,4 @@
 import asyncio
-import sys
 
 # ===== CONFIG =====
 HOST = "127.0.0.1"
@@ -8,8 +7,8 @@ PORT = 5000
 
 # ===== RECEIVE =====
 async def receive(reader):
-    while True:
-        try:
+    try:
+        while True:
             data = await reader.readline()
             if not data:
                 print("\n[DISCONNECTED] Server closed connection.")
@@ -17,40 +16,33 @@ async def receive(reader):
 
             message = data.decode().strip()
 
-            # In ra không đè dòng input
             print(f"\n{message}")
             print(">> ", end="", flush=True)
 
-        except Exception as e:
-            print("\n[ERROR] Lost connection:", e)
-            break
-
-    sys.exit()
+    except Exception as e:
+        print("\n[ERROR] Receive failed:", e)
 
 
 # ===== SEND =====
 async def send(writer):
-    while True:
-        try:
+    try:
+        while True:
             msg = await asyncio.to_thread(input, ">> ")
 
             if not msg:
                 continue
 
-            # exit
-            if msg.lower() == "exit":
+            if msg.lower() == "/exit":
                 writer.write((msg + "\n").encode())
                 await writer.drain()
                 print("[EXIT] Disconnected.")
                 break
 
-            # gửi command
             writer.write((msg + "\n").encode())
             await writer.drain()
 
-        except Exception as e:
-            print("[ERROR]", e)
-            break
+    except Exception as e:
+        print("[ERROR] Send failed:", e)
 
 
 # ===== MAIN =====
@@ -59,10 +51,23 @@ async def main():
         reader, writer = await asyncio.open_connection(HOST, PORT)
         print(f"[CONNECTED] Connected to {HOST}:{PORT}")
     except Exception as e:
-        print("[ERROR] Cannot connect to server:", e)
+        print("[ERROR] Cannot connect:", e)
         return
 
-    # chạy song song gửi và nhận
+    # ===== nhận prompt KHÔNG xuống dòng =====
+    data = await reader.read(100)
+    print(data.decode(), end="")   # ⚠️ không xuống dòng
+
+    # ===== nhập username cùng dòng =====
+    username = await asyncio.to_thread(input)
+    writer.write((username + "\n").encode())
+    await writer.drain()
+
+    # ===== nhận welcome =====
+    data = await reader.readline()
+    print(data.decode().strip())
+
+    # ===== chạy song song =====
     await asyncio.gather(
         receive(reader),
         send(writer)
