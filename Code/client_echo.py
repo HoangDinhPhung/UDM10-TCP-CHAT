@@ -1,22 +1,52 @@
 import socket
+import sys
 
-HOST = '127.0.0.1'
+HOST = '127.0.0.1' 
 PORT = 12345
+BUFFER_SIZE = 1024
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST, PORT))
+def start_client():
+    # Khởi tạo TCP socket 
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    try:
+        # Kết nối tới server
+        client_socket.connect((HOST, PORT))
+        print(f"[*] Đã kết nối thành công tới Server {HOST}:{PORT}")
+        print("[*] Gõ '/exit' để đóng kết nối.")
 
-print("Connected to server")
+        # Vòng lặp gửi/nhận 
+        while True:
+            msg = input("Client nói: ").strip()
+            
+            if not msg:
+                continue
+                
+            # Xử lý lệnh thoát
+            if msg.lower() == "/exit":
+                print("[!] Đang thoát...")
+                break
 
-while True:
-    msg = input("Enter message: ")
+            # Gửi dữ liệu đi
+            client_socket.sendall(msg.encode('utf-8'))
 
-    if msg.lower() == "exit":
-        break
+            # Nhận phản hồi (Echo) từ server
+            data = client_socket.recv(BUFFER_SIZE)
+            
+            if not data:
+                print("[!] Server đã ngắt kết nối.")
+                break
+                
+            print(f"[*] Server phản hồi: {data.decode('utf-8')}")
 
-    s.sendall(msg.encode())
+    except ConnectionRefusedError:
+        print("[LỖI] Không thể kết nối. Hãy chắc chắn server_selectors.py đang chạy!")
+    except Exception as e:
+        print(f"[LỖI] Đã xảy ra sự cố: {e}")
+    finally:
+        # Đóng socket an toàn
+        client_socket.close()
+        print("[*] Socket đã đóng.")
 
-    data = s.recv(1024)
-    print("Echo:", data.decode())
-
-s.close()
+if __name__ == "__main__":
+    start_client()
