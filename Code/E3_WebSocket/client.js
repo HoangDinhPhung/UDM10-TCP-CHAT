@@ -21,3 +21,4 @@ function sendMsg() {
 
     input.value = "";
 }
+//thanhupdate
