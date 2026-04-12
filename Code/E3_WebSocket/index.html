@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Demo - Group 4</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">
+        Project Group 4
+        <div id="status">Đang chờ kết nối...</div>
+    </div>
+
+    <div id="chat-box">
+        <div class="message received">Chào! Đây là tin nhắn mẫu từ server.</div>
+        <div class="message sent">Chào hệ thống! Mình đang test giao diện.</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="message-input" placeholder="Nhập tin nhắn tại đây...">
+        <button id="send-btn">Gửi</button>
+    </div>
+</div>
+
+<script>
+    const sendBtn = document.getElementById('send-btn');
+    const input = document.getElementById('message-input');
+    const chatBox = document.getElementById('chat-box');
+
+    // Hàm xử lý hiển thị tin nhắn lên màn hình
+    function appendMessage(text, type) {
+        if (text.trim() !== "") {
+            const newMsg = document.createElement('div');
+            newMsg.classList.add('message', type);
+            newMsg.textContent = text;
+            chatBox.appendChild(newMsg);
+            
+            // Tự động cuộn xuống dưới cùng khi có tin nhắn mới
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+
+    // Sự kiện Click nút Gửi
+    sendBtn.onclick = () => {
+        appendMessage(input.value, 'sent');
+        input.value = "";
+    };
+
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendBtn.click();
+        }
+    });
+</script>
+
+</body>
+</html>
