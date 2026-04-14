@@ -3,9 +3,12 @@ import threading
 import asyncio
 
 HOST = "127.0.0.1"
-TCP_PORT = 12345
-WS_PORT = 5000
+PORT = 5000   # FIX: dùng chung server
 
+
+# =========================
+# 1. RECEIVE THREAD
+# =========================
 def receive_messages(sock):
     try:
         while True:
@@ -20,6 +23,9 @@ def receive_messages(sock):
         sock.close()
 
 
+# =========================
+# 2. SEND THREAD
+# =========================
 def send_messages(sock):
     try:
         while True:
@@ -33,9 +39,12 @@ def send_messages(sock):
         pass
 
 
+# =========================
+# 3. TCP THREAD CLIENT
+# =========================
 def tcp_thread_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((HOST, WS_PORT))  # dùng 5000 cho chat server
+    client.connect((HOST, PORT))
 
     threading.Thread(
         target=receive_messages,
@@ -46,13 +55,16 @@ def tcp_thread_client():
     send_messages(client)
 
 
-def tcp_client(port):
+# =========================
+# 4. TCP SIMPLE CLIENT
+# =========================
+def tcp_client():
     BUFFER_SIZE = 1024
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        client_socket.connect((HOST, port))
-        print(f"[*] Connected TCP {HOST}:{port}")
+        client_socket.connect((HOST, PORT))
+        print(f"[*] Connected TCP {HOST}:{PORT}")
 
         while True:
             msg = input("TCP >> ").strip()
@@ -76,12 +88,14 @@ def tcp_client(port):
         client_socket.close()
 
 
-#
-async def ws_client(port):
+# =========================
+# 5. ASYNC CLIENT (E2 STYLE)
+# =========================
+async def ws_client():
     try:
-        reader, writer = await asyncio.open_connection(HOST, port)
+        reader, writer = await asyncio.open_connection(HOST, PORT)
 
-        print(f"[CONNECTED] {HOST}:{port}")
+        print(f"[CONNECTED] {HOST}:{PORT}")
 
         data = await reader.read(100)
         print(data.decode(), end="")
@@ -116,6 +130,9 @@ async def ws_client(port):
         print("[ERROR]", e)
 
 
+# =========================
+# MAIN MENU
+# =========================
 if __name__ == "__main__":
     print("1. TCP Thread Client")
     print("2. TCP Simple Client")
@@ -126,8 +143,8 @@ if __name__ == "__main__":
     if choice == "1":
         tcp_thread_client()
     elif choice == "2":
-        tcp_client(TCP_PORT)
+        tcp_client()
     elif choice == "3":
-        asyncio.run(ws_client(WS_PORT))
+        asyncio.run(ws_client())
     else:
         print("Invalid choice")
