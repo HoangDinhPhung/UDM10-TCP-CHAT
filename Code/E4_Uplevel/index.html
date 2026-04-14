@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCP Chat System - Group 4</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <aside class="sidebar" id="sidebar-menu">
+        <div class="sidebar-header">
+            <h3>Connected Clients</h3>
+            <button id="close-menu-btn"><i class="fas fa-times"></i></button>
+        </div>
+        <ul class="room-list">
+            <li class="active">Client 1 (You)</li>
+            <li>Client 2</li>
+            <li>Client 3</li>
+            <li>Client 4</li>
+        </ul>
+    </aside>
+
+    <main class="chat-container">
+        <div class="chat-header">
+            <div class="header-left-content">
+                <button id="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="room-info">
+                    <strong>Project Group 4 - TCP Console</strong>
+                    <div id="status">Đang kết nối qua TCP Port...</div>
+                </div>
+            </div>
+            <div class="notification-area">
+                <span class="badge">3 thông báo</span>
+            </div>
+        </div>
+
+        <div id="chat-box">
+            <div class="system-notification">
+                [System] TCP Connection Confirmed. Three-way handshake complete.
+            </div>
+            
+            <div class="message received">
+                <span class="sender">Server:</span> Chào! Client 1 đã kết nối thành công.
+            </div>
+            <div class="message sent">
+                Chào hệ thống! Mình đang kiểm tra giao diện.
+            </div>
+        </div>
+
+        <div class="input-area">
+            <textarea id="message-input" placeholder="Nhập tin nhắn..." rows="1"></textarea>
+            <button id="send-btn">Gửi</button>
+        </div>
+    </main>
+</div>
+
+<script>
+    const sidebar = document.getElementById('sidebar-menu');
+    const overlay = document.getElementById('sidebar-overlay');
+    const openBtn = document.getElementById('mobile-menu-btn');
+    const closeBtn = document.getElementById('close-menu-btn');
+
+    // Hàm mở menu
+    function openMenu() {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+    }
+
+    // Hàm đóng menu
+    function closeMenu() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+    }
+
+    // Sự kiện click
+    openBtn.addEventListener('click', openMenu);
+    closeBtn.addEventListener('click', closeMenu);
+    overlay.addEventListener('click', closeMenu); // Ấn ra ngoài để đóng
+</script>
+
+</body>
+</html>
