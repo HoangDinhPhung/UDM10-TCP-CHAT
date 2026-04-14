@@ -7,7 +7,7 @@ WebSocket sử dụng HTTP Upgrade request để chuyển sang giao thức WS.
 Dữ liệu truyền theo frame binary/text, tối ưu hơn TCP raw.
 
 ## 3. API
-- ws://localhost:5000
+- ws://localhost:8765
 - send(message)
 - onmessage(event)
 
