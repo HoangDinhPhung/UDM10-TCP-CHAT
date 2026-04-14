@@ -1,7 +1,7 @@
 import selectors
 import socket
 
-HOST, PORT = '0.0.0.0', 12345
+HOST, PORT = '0.0.0.0', 5000
 sel = selectors.DefaultSelector()
 
 def accept(sock):
