@@ -1,54 +1,43 @@
-// File: Code/E4_Uplevel/client_advanced.js
-// Project: E4_Uplevel - Advanced WebSocket Client
-// ONLY JavaScript (no HTML changes)
-
-// Features required by E4:
-// - Connect to advanced WebSocket server (server_ws_advanced.py)
-// - onmessage, send, broadcast, private message
-// - Realtime UI update
-// - Handle reconnect, error
-// - Handle user status + user list
-
 let ws = null;
 let reconnectDelay = 2000;
 let maxReconnectDelay = 10000;
+let username = "";
 
-// ===== Existing HTML elements (assumed already created) =====
-const chatBox = document.getElementById("chatBox");
-const input = document.getElementById("input");
+const chatBox = document.getElementById("chat-box");
+const input = document.getElementById("message-input");
 const statusBox = document.getElementById("status");
-const userListBox = document.getElementById("userList");
+const userListBox = document.getElementById("user-list");
 
-// ===== Connect to WebSocket =====
 function connect() {
-    console.log("Connecting to advanced WebSocket server...");
-
-    ws = new WebSocket("ws://localhost:8765");
+    ws = new WebSocket("ws://127.0.0.1:8765");
 
     ws.onopen = () => {
-        console.log("Connected");
-        updateStatus("Connected");
+        updateStatus("🟢 Connected");
         reconnectDelay = 2000;
+
+        // gửi username 
+        if (username) {
+            ws.send(JSON.stringify({
+                type: "login",
+                username: username
+            }));
+        }
     };
 
     ws.onmessage = (event) => {
-        console.log("Message received:", event.data);
         handleMessage(event.data);
     };
 
-    ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        updateStatus("Error");
+    ws.onerror = () => {
+        updateStatus("⚠️ Error");
     };
 
     ws.onclose = () => {
-        console.log("Connection closed");
-        updateStatus("Disconnected - reconnecting...");
+        updateStatus("🔴 Disconnected - reconnecting...");
         reconnect();
     };
 }
 
-// ===== Reconnect logic =====
 function reconnect() {
     setTimeout(() => {
         reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
@@ -56,7 +45,13 @@ function reconnect() {
     }, reconnectDelay);
 }
 
-// ===== Send normal message =====
+function login() {
+    username = prompt("Enter your username:");
+    if (!username) {
+        username = "Guest_" + Math.floor(Math.random() * 1000);
+    }
+}
+
 function sendMessage() {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         alert("Not connected");
@@ -64,50 +59,44 @@ function sendMessage() {
     }
 
     const message = input.value.trim();
-
     if (message === "") return;
 
-    const data = {
+    ws.send(JSON.stringify({
         type: "message",
         content: message
-    };
+    }));
 
-    ws.send(JSON.stringify(data));
+    addMessage(`You: ${message}`);
     input.value = "";
 }
 
-// ===== Broadcast message =====
 function broadcastMessage() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
     const message = input.value.trim();
+    if (!message) return;
 
-    const data = {
+    ws.send(JSON.stringify({
         type: "broadcast",
         content: message
-    };
+    }));
 
-    ws.send(JSON.stringify(data));
+    addMessage(`[Broadcast] You: ${message}`);
     input.value = "";
 }
 
-// ===== Private message =====
-function sendPrivateMessage(username) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
+function sendPrivateMessage(targetUser) {
     const message = input.value.trim();
+    if (!message) return;
 
-    const data = {
+    ws.send(JSON.stringify({
         type: "private",
-        to: username,
+        to: targetUser,
         content: message
-    };
+    }));
 
-    ws.send(JSON.stringify(data));
+    addMessage(`[Private → ${targetUser}] You: ${message}`);
     input.value = "";
 }
 
-// ===== Handle incoming data =====
 function handleMessage(raw) {
     let data;
 
@@ -119,10 +108,17 @@ function handleMessage(raw) {
     }
 
     switch (data.type) {
+
         case "message":
+            addMessage(`${data.from}: ${data.content}`);
+            break;
+
         case "broadcast":
+            addMessage(`[Broadcast] ${data.from}: ${data.content}`);
+            break;
+
         case "private":
-            addMessage(`${data.from || "Server"}: ${data.content}`);
+            addMessage(`[Private] ${data.from}: ${data.content}`);
             break;
 
         case "user_list":
@@ -138,7 +134,6 @@ function handleMessage(raw) {
     }
 }
 
-// ===== Update chat UI =====
 function addMessage(text) {
     if (!chatBox) return;
 
@@ -149,7 +144,6 @@ function addMessage(text) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// ===== Update user list =====
 function updateUserList(users) {
     if (!userListBox) return;
 
@@ -159,20 +153,26 @@ function updateUserList(users) {
         const item = document.createElement("div");
         item.textContent = user;
 
-        item.onclick = () => sendPrivateMessage(user);
+        item.onclick = () => {
+            const msg = prompt(`Send private message to ${user}:`);
+            if (msg) {
+                ws.send(JSON.stringify({
+                    type: "private",
+                    to: user,
+                    content: msg
+                }));
+            }
+        };
 
         userListBox.appendChild(item);
     });
 }
 
-// ===== Update connection status =====
 function updateStatus(text) {
     if (!statusBox) return;
-
     statusBox.textContent = text;
 }
 
-// ===== Enter key to send =====
 if (input) {
     input.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
@@ -181,10 +181,9 @@ if (input) {
     });
 }
 
-// ===== Start connection automatically =====
+login();
 connect();
 
-// ===== Export functions (for buttons in HTML) =====
 window.sendMessage = sendMessage;
 window.broadcastMessage = broadcastMessage;
-window.sendPrivateMessage = sendPrivateMessage;
+window.sendPrivateMessage = sendPrivateMessage;.
