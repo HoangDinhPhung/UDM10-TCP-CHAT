@@ -3,7 +3,6 @@ import asyncio
 clients = {}  # {writer: username}
 
 
-# ================= LOGIN =================
 async def login(reader, writer):
     writer.write("Enter username: ".encode())
     await writer.drain()
@@ -19,7 +18,6 @@ async def login(reader, writer):
     return username
 
 
-# ================= BROADCAST =================
 async def broadcast(message, sender_writer=None):
     for writer in list(clients.keys()):
         try:
@@ -31,7 +29,6 @@ async def broadcast(message, sender_writer=None):
             await disconnect(writer)
 
 
-# ================= COMMAND HANDLER =================
 async def handle_command(message, writer):
     username = clients.get(writer)
 
@@ -70,7 +67,6 @@ async def handle_command(message, writer):
         await writer.drain()
 
 
-# ================= DISCONNECT =================
 async def disconnect(writer):
     username = clients.get(writer, "Unknown")
 
@@ -87,8 +83,6 @@ async def disconnect(writer):
 
     await broadcast(f"[SERVER] {username} left\n")
 
-
-# ================= HANDLE CLIENT =================
 async def handle_client(reader, writer):
     try:
         username = await login(reader, writer)
@@ -115,7 +109,6 @@ async def handle_client(reader, writer):
         await disconnect(writer)
 
 
-# ================= MAIN =================
 async def main():
     server = await asyncio.start_server(handle_client, "127.0.0.1", 5000)
 
