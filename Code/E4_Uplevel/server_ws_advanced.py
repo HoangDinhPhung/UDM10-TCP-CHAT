@@ -3,10 +3,9 @@ import websockets
 import time
 import logging
 import os
-
+import json
 
 os.makedirs("logs", exist_ok=True)
-
 
 logging.basicConfig(
     filename='logs/client_events.log',
@@ -21,6 +20,22 @@ TIMEOUT = 300
 clients = {} 
 
 
+
+async def send_user_list():
+    users = [info["name"] for info in clients.values() if info["name"]]
+
+    data = json.dumps({
+        "type": "user_list",
+        "users": users
+    })
+
+    for client in clients:
+        try:
+            await client.send(data)
+        except:
+            pass
+
+
 async def handler(websocket):
     clients[websocket] = {
         "name": None,
@@ -33,50 +48,70 @@ async def handler(websocket):
     try:
         async for message in websocket:
             clients[websocket]["last_active"] = time.time()
-            msg_text = message.strip()
 
-    
-            if msg_text.startswith("name:"):
-                username = msg_text.split("name:", 1)[1]
-                clients[websocket]["name"] = username
-
-                await websocket.send(f"Your name set to {username}")
-                print(f"Set name: {username}")
+            try:
+                data = json.loads(message)
+            except:
+                await websocket.send("Invalid JSON")
                 continue
 
+            msg_type = data.get("type")
             sender = clients[websocket]["name"] or "Unknown"
 
-            
-            if msg_text.startswith("broadcast:"):
-                content = msg_text.split("broadcast:", 1)[1]
+            if msg_type == "login":
+                username = data.get("username")
+                clients[websocket]["name"] = username
+
+                await websocket.send(json.dumps({
+                    "type": "status",
+                    "message": f"Logged in as {username}"
+                }))
+
+                await send_user_list()
+                continue
+
+            elif msg_type == "message":
+                content = data.get("content")
 
                 for client in clients:
                     if client != websocket:
-                        await client.send(f"[BROADCAST] {sender}: {content}")
+                        await client.send(json.dumps({
+                            "type": "message",
+                            "from": sender,
+                            "content": content
+                        }))
 
-        
-            elif msg_text.startswith("private:"):
-                try:
-                    _, target_name, content = msg_text.split(":", 2)
+            elif msg_type == "broadcast":
+                content = data.get("content")
 
-                    found = False
-                    for client, info in clients.items():
-                        if info["name"] == target_name:
-                            await client.send(f"[PRIVATE] {sender}: {content}")
-                            found = True
-                            break
-
-                    if not found:
-                        await websocket.send("User not found")
-
-                except:
-                    await websocket.send("Format: private:username:message")
-
-        
-            else:
                 for client in clients:
                     if client != websocket:
-                        await client.send(f"{sender}: {msg_text}")
+                        await client.send(json.dumps({
+                            "type": "broadcast",
+                            "from": sender,
+                            "content": content
+                        }))
+
+            elif msg_type == "private":
+                target = data.get("to")
+                content = data.get("content")
+
+                found = False
+                for client, info in clients.items():
+                    if info["name"] == target:
+                        await client.send(json.dumps({
+                            "type": "private",
+                            "from": sender,
+                            "content": content
+                        }))
+                        found = True
+                        break
+
+                if not found:
+                    await websocket.send(json.dumps({
+                        "type": "status",
+                        "message": "User not found"
+                    }))
 
     except:
         pass
@@ -84,18 +119,24 @@ async def handler(websocket):
     finally:
         print("Client disconnected")
         logging.info("Client disconnected")
-        del clients[websocket]
+
+        if websocket in clients:
+            del clients[websocket]
+
+        await send_user_list()
 
 
 async def check_timeout():
     while True:
         now = time.time()
+
         for client, info in list(clients.items()):
             if now - info["last_active"] > TIMEOUT:
                 print("Timeout disconnect")
                 logging.info("Timeout disconnect")
                 await client.close()
                 del clients[client]
+
         await asyncio.sleep(5)
 
 
@@ -104,6 +145,7 @@ async def main():
     print(f"WebSocket server running at ws://{HOST}:{PORT}")
 
     asyncio.create_task(check_timeout())
+
     await server.wait_closed()
 
 
