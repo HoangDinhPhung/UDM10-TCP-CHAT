@@ -1,64 +1,74 @@
 import socket
 import threading
 
-def receive(sock):
+HOST = "127.0.0.1"
+PORT = 8888
+
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect((HOST, PORT))
+
+def receive():
     while True:
         try:
-            data = sock.recv(1024).decode()
-            if not data:
+            msg = client.recv(1024).decode()
+
+            if not msg:
                 break
 
-            if data.startswith("MSG|"):
-                _, sender, msg = data.split("|", 2)
-                print(f"\n[{sender}]: {msg}")
+            # CHAT RIÊNG
+            if msg.startswith("MSG|"):
+                _, sender, content = msg.split("|", 2)
+                print(f"\n💬 {sender}: {content}")
 
-            elif data.startswith("USER_LIST|"):
-                users = data.split("|")[1]
-                print(f"\n[Online]: {users}")
+            # LIST USER
+            elif msg.startswith("USER_LIST|"):
+                users = msg.split("|")[1]
+                print(f"\n👥 Online users: {users}")
 
-            elif data.startswith("ERROR|"):
-                print(f"\n[Error]: {data.split('|')[1]}")
+            # ERROR
+            elif msg.startswith("ERROR|"):
+                print(f"\n❌ {msg}")
 
+            # OK login
             else:
-                print(f"\n[Server]: {data}")
+                print(f"\n📩 {msg}")
 
         except:
+            print("\n❌ Disconnected from server")
+            client.close()
             break
 
+
+
+
 def main():
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(("127.0.0.1", 8888))
+    threading.Thread(target=receive, daemon=True).start()
 
-    threading.Thread(target=receive, args=(client,), daemon=True).start()
+    # LOGIN
+    username = input("Enter username: ")
+    client.send(f"LOGIN|{username}".encode())
 
-    print("Commands: login <name> | list | msg <user> <message> | exit")
+    print("\nCommands:")
+    print("list → xem user online")
+    print("send <user> <message> → chat riêng")
 
     while True:
         cmd = input("> ")
 
-        if cmd.startswith("login "):
-            username = cmd.split(" ", 1)[1]
-            client.send(f"LOGIN|{username}".encode())
-
-        elif cmd == "list":
+        # LIST USER
+        if cmd == "list":
             client.send("LIST".encode())
 
-        elif cmd.startswith("msg "):
-            parts = cmd.split(" ", 2)
-            if len(parts) < 3:
-                print("Sai cú pháp!")
-                continue
-
-            _, user, message = parts
-            client.send(f"MSG|{user}|{message}".encode())
-
-        elif cmd == "exit":
-            break
+        # CHAT RIÊNG
+        elif cmd.startswith("send "):
+            try:
+                _, target, message = cmd.split(" ", 2)
+                client.send(f"SEND|{target}|{message}".encode())
+            except:
+                print("❌ Format: send <user> <message>")
 
         else:
-            print("Lệnh không hợp lệ!")
-
-    client.close()
+            print("❌ Unknown command")
 
 
 if __name__ == "__main__":
