@@ -33,7 +33,7 @@
                 </button>
                 <div class="room-info">
                     <strong>Project Group 4 - TCP Console</strong>
-                    <div id="status">Đang kết nối qua TCP Port...</div>
+                    <div id="status">Đang kết nối...</div>
                 </div>
             </div>
             <div class="notification-area">
@@ -43,14 +43,7 @@
 
         <div id="chat-box">
             <div class="system-notification">
-                [System] TCP Connection Confirmed. Three-way handshake complete.
-            </div>
-            
-            <div class="message received">
-                <span class="sender">Server:</span> Chào! Client 1 đã kết nối thành công.
-            </div>
-            <div class="message sent">
-                Chào hệ thống! Mình đang kiểm tra giao diện.
+                [System] Connection established
             </div>
         </div>
 
@@ -67,12 +60,10 @@
     const openBtn = document.getElementById('mobile-menu-btn');
     const closeBtn = document.getElementById('close-menu-btn');
 
-
     function openMenu() {
         sidebar.classList.add('open');
         overlay.classList.add('active');
     }
-
 
     function closeMenu() {
         sidebar.classList.remove('open');
@@ -81,36 +72,69 @@
 
     openBtn.addEventListener('click', openMenu);
     closeBtn.addEventListener('click', closeMenu);
-    overlay.addEventListener('click', closeMenu); // Ấn ra ngoài để đóng
+    overlay.addEventListener('click', closeMenu);
 </script>
-<script>
 
+<script>
     const ws = new WebSocket("ws://localhost:8765");
 
     const chatBox = document.getElementById("chat-box");
     const input = document.getElementById("message-input");
     const sendBtn = document.getElementById("send-btn");
+    const status = document.getElementById("status");
+
+    ws.onopen = () => {
+        status.textContent = "Đã kết nối WebSocket";
+
+        ws.send(JSON.stringify({
+            type: "login",
+            username: "Client1"
+        }));
+    };
 
     ws.onmessage = (event) => {
+        let data;
+
+        try {
+            data = JSON.parse(event.data);
+        } catch {
+            return;
+        }
+
         const msg = document.createElement("div");
         msg.classList.add("message", "received");
-        msg.innerHTML = `<span class="sender">Server:</span> ${event.data}`;
-        chatBox.appendChild(msg);
 
+        if (data.type === "message" || data.type === "broadcast") {
+            msg.innerHTML = `<span class="sender">${data.from || "Server"}:</span> ${data.content}`;
+        }
+        else if (data.type === "private") {
+            msg.innerHTML = `<span class="sender">🔒 ${data.from}:</span> ${data.content}`;
+        }
+        else if (data.type === "status") {
+            msg.innerHTML = `<i>${data.message}</i>`;
+        }
+        else {
+            msg.innerHTML = event.data;
+        }
+
+        chatBox.appendChild(msg);
         chatBox.scrollTop = chatBox.scrollHeight;
     };
 
     function sendMessage() {
         const text = input.value.trim();
-        if (text === "") return;
+        if (!text) return;
 
-        // Hiển thị bên mình
         const msg = document.createElement("div");
         msg.classList.add("message", "sent");
         msg.textContent = text;
+
         chatBox.appendChild(msg);
 
-        ws.send(text); 
+        ws.send(JSON.stringify({
+            type: "message",
+            content: text
+        }));
 
         input.value = "";
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -118,21 +142,17 @@
 
     sendBtn.addEventListener("click", sendMessage);
 
-    input.addEventListener("keypress", function(e) {
+    input.addEventListener("keypress", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
 
-    ws.onopen = () => {
-        document.getElementById("status").textContent = "Đã kết nối WebSocket";
-    };
-
     ws.onclose = () => {
-
-        document.getElementById("status").textContent = "Mất kết nối";
+        status.textContent = "Mất kết nối WebSocket";
     };
 </script>
+
 </body>
 </html>
