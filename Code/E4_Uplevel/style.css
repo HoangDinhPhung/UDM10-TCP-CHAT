@@ -1,4 +1,4 @@
-/* Giao diện sáng theo yêu cầu của Nam */
+/* RESET */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -14,6 +14,7 @@ body {
     height: 100vh;
 }
 
+/* WRAPPER */
 .app-wrapper {
     display: flex;
     width: 95%;
@@ -23,46 +24,33 @@ body {
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    position: relative;
 }
 
-/* Sidebar (Danh sách Client) */
+/* SIDEBAR */
 .sidebar {
     width: 260px;
     background: #f8f9fa;
     border-right: 1px solid #e0e0e0;
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease-in-out;
-    z-index: 10;
 }
 
+/* HEADER SIDEBAR */
 .sidebar-header {
     padding: 20px;
     background: #ffffff;
     font-weight: bold;
     color: #333;
     border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
-#close-menu-btn {
-    display: none;
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    color: #555;
-    cursor: pointer;
-}
-
-.room-list {
-    list-style: none;
+/* USER LIST */
+#user-list {
     padding: 10px;
+    overflow-y: auto;
 }
 
-.room-list li {
+#user-list div {
     padding: 12px 15px;
     margin-bottom: 8px;
     border-radius: 8px;
@@ -71,96 +59,51 @@ body {
     transition: 0.2s;
 }
 
-.room-list li.active {
+#user-list div:hover {
+    background: #f1f1f1;
+}
+
+#user-list div.active {
     background: #e7f3ff;
     color: #007bff;
     font-weight: 600;
 }
 
-.room-list li:hover:not(.active) {
-    background: #f1f1f1;
-}
-
-/* Lớp phủ khi mở menu mobile */
-.sidebar-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 5;
-    display: none;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.sidebar-overlay.active {
-    display: block;
-    opacity: 1;
-}
-
-/* Khung chat chính */
+/* CHAT CONTAINER */
 .chat-container {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
+/* HEADER */
 .chat-header {
     background: #007bff;
     color: white;
-    padding: 10px 20px;
+    padding: 12px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 60px;
 }
 
-.header-left-content {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-#mobile-menu-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.3rem;
-    cursor: pointer;
-    padding: 5px;
-}
-
-.room-info strong {
-    font-size: 1rem;
-}
-
+/* STATUS */
 #status {
-    font-size: 0.75rem;
-    color: #d1e7ff;
+    font-size: 0.8rem;
+    color: #ffffff;
 }
 
-.badge {
-    background: #ff4757;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-}
-
-/* Khu vực tin nhắn */
+/* CHAT BOX */
 #chat-box {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
-    background: #ffffff;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
+    background: #ffffff;
 }
 
+/* SYSTEM MESSAGE */
 .system-notification {
     align-self: center;
     font-size: 0.8rem;
@@ -171,6 +114,7 @@ body {
     border: 1px solid #e9ecef;
 }
 
+/* MESSAGE */
 .message {
     padding: 10px 15px;
     border-radius: 18px;
@@ -178,40 +122,38 @@ body {
     font-size: 0.95rem;
     line-height: 1.4;
     word-wrap: break-word;
+
+    /* animation */
+    animation: fadeIn 0.2s ease-in;
 }
 
-.sender {
-    display: block;
-    font-size: 0.75rem;
-    margin-bottom: 3px;
-    color: #007bff;
-    font-weight: bold;
-}
-
-.received {
-    background: #e4e6eb;
-    color: #333;
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-}
-
+/* SENT */
 .sent {
     background: #007bff;
     color: white;
     align-self: flex-end;
-    border-bottom-right-radius: 2px;
+    border-bottom-right-radius: 4px;
 }
 
-/* Khu vực nhập liệu */
+/* RECEIVED */
+.received {
+    background: #e4e6eb;
+    color: #333;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+}
+
+/* INPUT AREA */
 .input-area {
     padding: 15px 20px;
     background: white;
     border-top: 1px solid #eee;
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: flex-end;
 }
 
+/* INPUT */
 #message-input {
     flex: 1;
     background: #f0f2f5;
@@ -219,7 +161,6 @@ body {
     padding: 12px 18px;
     border-radius: 25px;
     resize: none;
-    font-family: inherit;
     outline: none;
     max-height: 120px;
 }
@@ -229,51 +170,47 @@ body {
     border-color: #007bff;
 }
 
-button#send-btn {
-    padding: 10px 25px;
+/* BUTTON */
+#send-btn {
+    padding: 10px 20px;
     background: #007bff;
     color: white;
     border: none;
     border-radius: 25px;
     cursor: pointer;
     font-weight: 600;
-    transition: background 0.3s;
+    transition: 0.3s;
 }
 
-button#send-btn:hover {
+#send-btn:hover {
     background: #0056b3;
 }
 
-/* Xử lý Responsive */
+/* ANIMATION */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* RESPONSIVE */
 @media (max-width: 768px) {
-    #mobile-menu-btn {
-        display: block;
-    }
-
-    .sidebar {
-        position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        width: 280px;
-        transform: translateX(-100%);
-    }
-
-    .sidebar.open {
-        transform: translateX(0);
-    }
-
-    #close-menu-btn {
-        display: block;
-    }
-
-    .message {
-        max-width: 85%;
-    }
-
     .app-wrapper {
         width: 100%;
         height: 100vh;
         border-radius: 0;
+    }
+
+    .sidebar {
+        width: 200px;
+    }
+
+    .message {
+        max-width: 85%;
     }
 }
