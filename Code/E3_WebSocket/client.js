@@ -26,7 +26,6 @@ function appendMessage(text, type) {
     }
 }
 
-// ===== GỬI =====
 function sendMessage() {
     const text = input.value.trim();
     if (text === "") return;
