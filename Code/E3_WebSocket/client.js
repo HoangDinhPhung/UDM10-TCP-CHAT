@@ -1,24 +1,45 @@
-let ws = new WebSocket("ws://127.0.0.1:8765"); 
+const sendBtn = document.getElementById('send-btn');
+const input = document.getElementById('message-input');
+const chatBox = document.getElementById('chat-box');
+const status = document.getElementById('status');
 
-let chat = document.getElementById("chat");
+const ws = new WebSocket("ws://127.0.0.1:8765");
 
 ws.onopen = () => {
-    chat.innerHTML += "<p>[Connected]</p>";
+    status.textContent = "Đã kết nối WebSocket";
+};
+
+ws.onclose = () => {
+    status.textContent = "Mất kết nối";
 };
 
 ws.onmessage = (event) => {
-    chat.innerHTML += "<p>" + event.data + "</p>";
+    appendMessage(event.data, 'received');
 };
+function appendMessage(text, type) {
+    if (text.trim() !== "") {
+        const newMsg = document.createElement('div');
+        newMsg.classList.add('message', type);
+        newMsg.textContent = text;
+        chatBox.appendChild(newMsg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
 
-function sendMsg() {
-    let input = document.getElementById("msg");
-    let msg = input.value;
+// ===== GỬI =====
+function sendMessage() {
+    const text = input.value.trim();
+    if (text === "") return;
 
-    if (msg.trim() === "") return;
-
-    ws.send(msg);
-    chat.innerHTML += "<p><b>You:</b> " + msg + "</p>";
-
+    ws.send(text);
+    appendMessage(text, 'sent');
     input.value = "";
 }
-//thanhupdate
+
+sendBtn.onclick = sendMessage;
+
+input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});0
