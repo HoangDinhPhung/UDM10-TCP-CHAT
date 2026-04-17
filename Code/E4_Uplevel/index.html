@@ -14,7 +14,7 @@
 
     <aside class="sidebar" id="sidebar-menu">
         <div class="sidebar-header">
-            <h3>Connected Clients</h3>
+            <h3>Co.nnected Clients</h3>
             <button id="close-menu-btn"><i class="fas fa-times"></i></button>
         </div>
         <ul class="room-list">
@@ -67,23 +67,72 @@
     const openBtn = document.getElementById('mobile-menu-btn');
     const closeBtn = document.getElementById('close-menu-btn');
 
-    // Hàm mở menu
+
     function openMenu() {
         sidebar.classList.add('open');
         overlay.classList.add('active');
     }
 
-    // Hàm đóng menu
+
     function closeMenu() {
         sidebar.classList.remove('open');
         overlay.classList.remove('active');
     }
 
-    // Sự kiện click
     openBtn.addEventListener('click', openMenu);
     closeBtn.addEventListener('click', closeMenu);
     overlay.addEventListener('click', closeMenu); // Ấn ra ngoài để đóng
 </script>
+<script>
 
+    const ws = new WebSocket("ws://localhost:8765");
+
+    const chatBox = document.getElementById("chat-box");
+    const input = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    ws.onmessage = (event) => {
+        const msg = document.createElement("div");
+        msg.classList.add("message", "received");
+        msg.innerHTML = `<span class="sender">Server:</span> ${event.data}`;
+        chatBox.appendChild(msg);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    function sendMessage() {
+        const text = input.value.trim();
+        if (text === "") return;
+
+        // Hiển thị bên mình
+        const msg = document.createElement("div");
+        msg.classList.add("message", "sent");
+        msg.textContent = text;
+        chatBox.appendChild(msg);
+
+        ws.send(text); 
+
+        input.value = "";
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    input.addEventListener("keypress", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    ws.onopen = () => {
+        document.getElementById("status").textContent = "Đã kết nối WebSocket";
+    };
+
+    ws.onclose = () => {
+
+        document.getElementById("status").textContent = "Mất kết nối";
+    };
+</script>
 </body>
 </html>
