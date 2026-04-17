@@ -1,118 +1,110 @@
-import socket
-import select
+import asyncio
+import websockets
 import time
 import logging
+import os
 
-# --- Logging client events ---
+
+os.makedirs("logs", exist_ok=True)
+
+
 logging.basicConfig(
     filename='logs/client_events.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-HOST = '127.0.0.1'
+HOST = "127.0.0.1"
 PORT = 8765
-TIMEOUT = 300  # giây
+TIMEOUT = 300
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server_socket.bind((HOST, PORT))
-server_socket.listen()
-server_socket.setblocking(False)
+clients = {} 
 
-clients = {}  # {socket: {"addr": addr, "name": str, "last_active": timestamp}}
 
-print(f"Server started on {HOST}:{PORT}")
-logging.info(f"Server started on {HOST}:{PORT}")
+async def handler(websocket):
+    clients[websocket] = {
+        "name": None,
+        "last_active": time.time()
+    }
 
-while True:
-    read_sockets, _, exception_sockets = select.select(
-        [server_socket] + list(clients.keys()), [], list(clients.keys()), 1
-    )
+    print("New connection")
+    logging.info("New connection")
 
-    for notified_socket in read_sockets:
-        if notified_socket == server_socket:
-            client_socket, client_address = server_socket.accept()
-            client_socket.setblocking(False)
+    try:
+        async for message in websocket:
+            clients[websocket]["last_active"] = time.time()
+            msg_text = message.strip()
 
-            clients[client_socket] = {
-                "addr": client_address,
-                "name": None,
-                "last_active": time.time()
-            }
+    
+            if msg_text.startswith("name:"):
+                username = msg_text.split("name:", 1)[1]
+                clients[websocket]["name"] = username
 
-            print(f"New connection: {client_address}")
-            logging.info(f"New connection from {client_address}")
+                await websocket.send(f"Your name set to {username}")
+                print(f"Set name: {username}")
+                continue
 
-        else:
-            try:
-                message = notified_socket.recv(1024)
-                if not message:
-                    raise ConnectionResetError()
+            sender = clients[websocket]["name"] or "Unknown"
 
-                clients[notified_socket]["last_active"] = time.time()
-                msg_text = message.decode('utf-8').strip()
+            
+            if msg_text.startswith("broadcast:"):
+                content = msg_text.split("broadcast:", 1)[1]
 
-                # ===== SET NAME =====
-                if msg_text.startswith("name:"):
-                    username = msg_text.split("name:", 1)[1]
-                    clients[notified_socket]["name"] = username
+                for client in clients:
+                    if client != websocket:
+                        await client.send(f"[BROADCAST] {sender}: {content}")
 
-                    notified_socket.send(f"Your name set to {username}".encode())
-                    print(f"{clients[notified_socket]['addr']} set name: {username}")
-                    continue
+        
+            elif msg_text.startswith("private:"):
+                try:
+                    _, target_name, content = msg_text.split(":", 2)
 
-                sender_name = clients[notified_socket]["name"] or str(clients[notified_socket]["addr"])
+                    found = False
+                    for client, info in clients.items():
+                        if info["name"] == target_name:
+                            await client.send(f"[PRIVATE] {sender}: {content}")
+                            found = True
+                            break
 
-                # ===== BROADCAST =====
-                if msg_text.startswith("broadcast:"):
-                    content = msg_text.split("broadcast:", 1)[1]
+                    if not found:
+                        await websocket.send("User not found")
 
-                    for sock in clients:
-                        if sock != notified_socket:
-                            sock.send(f"[BROADCAST] {sender_name}: {content}".encode())
+                except:
+                    await websocket.send("Format: private:username:message")
 
-                # ===== PRIVATE =====
-                elif msg_text.startswith("private:"):
-                    try:
-                        _, target_name, content = msg_text.split(":", 2)
+        
+            else:
+                for client in clients:
+                    if client != websocket:
+                        await client.send(f"{sender}: {msg_text}")
 
-                        found = False
-                        for sock, info in clients.items():
-                            if info["name"] == target_name:
-                                sock.send(f"[PRIVATE] {sender_name}: {content}".encode())
-                                found = True
-                                break
+    except:
+        pass
 
-                        if not found:
-                            notified_socket.send("User not found".encode())
+    finally:
+        print("Client disconnected")
+        logging.info("Client disconnected")
+        del clients[websocket]
 
-                    except:
-                        notified_socket.send("Format: private:username:message".encode())
 
-                # ===== CHAT THƯỜNG (QUAN TRỌNG NHẤT) =====
-                else:
-                    for sock in clients:
-                        if sock != notified_socket:
-                            sock.send(f"{sender_name}: {msg_text}".encode())
+async def check_timeout():
+    while True:
+        now = time.time()
+        for client, info in list(clients.items()):
+            if now - info["last_active"] > TIMEOUT:
+                print("Timeout disconnect")
+                logging.info("Timeout disconnect")
+                await client.close()
+                del clients[client]
+        await asyncio.sleep(5)
 
-            except:
-                print(f"Connection closed: {clients[notified_socket]['addr']}")
-                logging.info(f"Connection closed: {clients[notified_socket]['addr']}")
-                del clients[notified_socket]
-                notified_socket.close()
 
-    # ===== TIMEOUT =====
-    for sock, info in list(clients.items()):
-        if time.time() - info["last_active"] > TIMEOUT:
-            print(f"Timeout: {info['addr']}")
-            logging.info(f"Timeout: {info['addr']}")
-            sock.close()
-            del clients[sock]
+async def main():
+    server = await websockets.serve(handler, HOST, PORT)
+    print(f"WebSocket server running at ws://{HOST}:{PORT}")
 
-    # ===== EXCEPTION =====
-    for sock in exception_sockets:
-        print(f"Exception: {clients[sock]['addr']}")
-        logging.info(f"Exception: {clients[sock]['addr']}")
-        sock.close()
-        del clients[sock]
+    asyncio.create_task(check_timeout())
+    await server.wait_closed()
+
+
+asyncio.run(main())
