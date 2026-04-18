@@ -1,194 +1,67 @@
+import asyncio
+import sys
 from datetime import datetime
-import socket
-import threading
 
 HOST = "127.0.0.1"
 PORT = 5000
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((HOST, PORT))
+# Biến flag để kiểm tra đã qua bước nhập username chưa
+username_set = False
 
-user = None
-chat_target = None
-mode = None
-buffer = ""
-
-
-def now():
+def get_time():
     return datetime.now().strftime("%H:%M:%S")
 
-
-def prompt():
-    if not user:
-        return "> "
-    return f"[{user}{' -> ' + chat_target if chat_target else ''}] > "
-
-
-def recv():
-    global chat_target, mode, buffer
-
+async def receive(reader):
+    global username_set
     while True:
         try:
-            data = client.recv(1024).decode(errors="ignore")
+            data = await reader.readline()
             if not data:
-                print("\n Mất kết nối server")
+                print("\n[DISCONNECTED] Server closed connection.")
                 break
 
-            buffer += data
+            message = data.decode().strip()
+            
+            if message.startswith("SYSTEM|INVITE|"):
+                parts = message.split("|")
+                sender, group = parts[2], parts[3]
+                print(f"\n[{get_time()}] [Notification] User '{sender}' invited you to group '{group}'")
+                print(f"[{get_time()}] Type /accept to join or /reject to decline")
+            else:
+                print(f"\r{message}") 
 
-            while "\n" in buffer:
-                msg, buffer = buffer.split("\n", 1)
-                msg = msg.strip()
+            if "Welcome" in message or "You renamed to" in message:
+                username_set = True
+            
+            prompt = ">> " if not username_set else f"[{get_time()}] "
+            print(prompt, end="", flush=True)
 
-                if not msg:
-                    continue
+        except: break
+    sys.exit()
 
-                # PRIVATE 
-                if msg.startswith("MSG|"):
-                    _, sender, content = msg.split("|", 2)
-                    print(f"\n {content} | from {sender}")
-
-                # GROUP 
-                elif msg.startswith("GROUP|"):
-                    _, g, sender, content = msg.split("|", 3)
-                    print(f"\n[{g}] {sender}: {content}")
-
-                # LIST
-                elif msg.startswith("USER_LIST|"):
-                    raw = msg.split("|", 1)[1]
-                    users = [u for u in raw.split(",") if u.strip()]
-
-                    if users:
-                        print("\n ONLINE:", ",".join(users))
-                    else:
-                        print("\n ONLINE: (no users)")
-
-                #INVITE
-                elif msg.startswith("SYSTEM|INVITE"):
-                    parts = msg.split("|")
-                    group = parts[2]
-                    from_user = parts[4]
-
-                    chat_target = group
-                    mode = "invite"
-
-                    print("\n======================")
-                    print(" GROUP INVITE")
-                    print("Group:", group)
-                    print("From :", from_user)
-                    print(" accept / reject")
-                    print("======================")
-
-                # ===== SYSTEM =====
-                elif msg.startswith("SYSTEM|"):
-                    print(f"\n[{now()}] {msg.replace('SYSTEM|', '').strip()}")
-
-        except:
-            break
-
-
-def main():
-    global user, chat_target, mode
-
-    threading.Thread(target=recv, daemon=True).start()
-
-    user = input("LOGIN: ").strip()
-    client.send(f"LOGIN|{user}\n".encode())
-
-    print("""
-list
-send <user> <msg>
-broadcast <msg>
-
-group create <name>
-group invite <group> <user>
-group chat <name>
-
-accept
-reject
-logout
-""")
-
+async def send(writer):
+    global username_set
     while True:
-        cmd = input(prompt()).strip()
+        try:
+            current_prompt = ">> " if not username_set else f"[{get_time()}] "
+            
+            msg = await asyncio.to_thread(input, current_prompt)
+            if not msg: continue
 
-        # LIST 
-        if cmd == "list":
-            client.send("LIST\n".encode())
-            continue
+            writer.write((msg + "\n").encode())
+            await writer.drain()
 
-        # PRIVATE CHAT 
-        if cmd.startswith("send "):
-            try:
-                _, to, msg = cmd.split(" ", 2)
-                chat_target = to
-                mode = "private"
-                client.send(f"SEND|{to}|{msg}\n".encode())
-            except:
-                print(" sai cú pháp: send <user> <msg>")
-            continue
+            if msg.lower() in ["/exit", "/quit", "exit"]: break
+        except: break
 
-        # BROADCAST
-        if cmd.startswith("broadcast "):
-            client.send(f"BROADCAST|{cmd.split(' ',1)[1]}\n".encode())
-            continue
-
-        # GROUP CREATE 
-        if cmd.startswith("group create "):
-            client.send(f"GROUP_CREATE|{cmd.split(' ',2)[2]}\n".encode())
-            continue
-
-        #  GROUP INVITE 
-        if cmd.startswith("group invite "):
-            try:
-                _, _, g, t = cmd.split(" ", 3)
-                client.send(f"GROUP_INVITE|{g}|{t}\n".encode())
-            except:
-                print(" sai cú pháp: group invite <group> <user>")
-            continue
-
-        # GROUP MODE 
-        if cmd.startswith("group chat "):
-            chat_target = cmd.split(" ", 2)[2]
-            mode = "group"
-            print(" GROUP MODE:", chat_target)
-            continue
-
-        # ACCEPT 
-        if cmd == "accept":
-            if mode == "invite":
-                client.send(f"GROUP_ACCEPT|{chat_target}\n".encode())
-                mode = "group"
-            continue
-
-        # REJECT
-        if cmd == "reject":
-            if mode == "invite":
-                client.send(f"GROUP_REJECT|{chat_target}\n".encode())
-                chat_target = None
-                mode = None
-            continue
-
-        # LOGOUT
-        if cmd == "logout":
-            client.send("LOGOUT\n".encode())
-            print(" Đã thoát server")
-            break
-
-        #  CHAT GROUP
-        if mode == "group":
-            if cmd:
-                client.send(f"GROUP_MSG|{chat_target}|{cmd}\n".encode())
-            continue
-
-        # HAT PRIVATE
-        if mode == "private":
-            if cmd:
-                client.send(f"SEND|{chat_target}|{cmd}\n".encode())
-            continue
-
-        print(" sai lệnh")
-
+async def main():
+    try:
+        reader, writer = await asyncio.open_connection(HOST, PORT)
+        print(f"[CONNECTED] Connected to {HOST}:{PORT}")
+        await asyncio.gather(receive(reader), send(writer))
+    except Exception as e:
+        print(f"[ERROR] {e}")
 
 if __name__ == "__main__":
-    main()
+    try: asyncio.run(main())
+    except KeyboardInterrupt: print("\nClient closed.")
