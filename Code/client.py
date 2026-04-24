@@ -5,7 +5,6 @@ from datetime import datetime
 HOST = "127.0.0.1"
 PORT = 5000
 
-# Biến flag để kiểm tra đã qua bước nhập username chưa
 username_set = False
 
 def get_time():
@@ -22,14 +21,17 @@ async def receive(reader):
 
             message = data.decode().strip()
             
+            # phần xử lý lời mời hệ thống
             if message.startswith("SYSTEM|INVITE|"):
                 parts = message.split("|")
                 sender, group = parts[2], parts[3]
                 print(f"\n[{get_time()}] [Notification] User '{sender}' invited you to group '{group}'")
                 print(f"[{get_time()}] Type /accept to join or /reject to decline")
+            # phần hiển thị tin nhắn thông thường
             else:
                 print(f"\r{message}") 
 
+            # phần cập nhật trạng thái prompt
             if "Welcome" in message or "You renamed to" in message:
                 username_set = True
             
@@ -51,6 +53,7 @@ async def send(writer):
             writer.write((msg + "\n").encode())
             await writer.drain()
 
+            # phần thoát
             if msg.lower() in ["/exit", "/quit", "exit"]: break
         except: break
 
