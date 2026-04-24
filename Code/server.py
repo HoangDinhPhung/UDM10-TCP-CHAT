@@ -53,11 +53,13 @@ async def handle_client(reader, writer):
 
             current_t = get_time()
 
+            # phần /list
             if msg.startswith("/list"):
                 user_list = ", ".join(clients.values())
                 writer.write(f"[{current_t}] Online users: {user_list}\n".encode())
                 await writer.drain()
 
+            # phần /msg
             elif msg.startswith("/msg"):
                 parts = msg.split(" ", 2)
                 if len(parts) < 3:
@@ -77,12 +79,15 @@ async def handle_client(reader, writer):
                     writer.write(f"[{current_t}] User not found\n".encode())
                     await writer.drain()
 
+            # phần /create
             elif msg.startswith("/create "):
                 g_name = msg.split(" ", 1)[1].strip().lower()
                 groups[g_name] = [writer]
+                print(f"[{current_t}] [SERVER INFO] Group '{g_name}' created by {username}") 
                 writer.write(f"[{current_t}] [Notification] Group '{g_name}' created.\n".encode())
                 await writer.drain()
 
+            # phần /invite
             elif msg.startswith("/invite "):
                 parts = msg.split(" ")
                 if len(parts) < 3:
@@ -96,34 +101,140 @@ async def handle_client(reader, writer):
                 elif g_name in groups and writer in groups[g_name]:
                     target_writer = next((w for w, n in clients.items() if n == target), None)
                     if target_writer:
-                        invites[target] = g_name
-                        target_writer.write(f"SYSTEM|INVITE|{username}|{g_name}\n".encode())
-                        await target_writer.drain()
-                        writer.write(f"[{current_t}] [Notification] Invitation sent to {target}.\n".encode())
+                        if target_writer in groups[g_name]: # đã thêm 2 điều kiện kiểm tra này để tránh mời người đã là thành viên hoặc đã có lời mời
+                            writer.write(f"[{current_t}] [Notification] User '{target}' is already in the group.\n".encode())
+                        elif target in invites and invites[target][0] == g_name:
+                            writer.write(f"[{current_t}] [Notification] User '{target}' already has a pending invite to this group.\n".encode())
+                        else:
+                            invites[target] = (g_name, username)
+                            target_writer.write(f"SYSTEM|INVITE|{username}|{g_name}\n".encode())
+                            await target_writer.drain()
+                            writer.write(f"[{current_t}] [Notification] Invitation sent to {target}.\n".encode())
                     else:
                         writer.write(f"[{current_t}] [Notification] User not found.\n".encode())
                 else:
                     writer.write(f"[{current_t}] [Notification] Group doesn't exist or you're not a member.\n".encode())
                 await writer.drain()
 
+            # phần /accept
             elif msg == "/accept":
                 if username in invites:
-                    g_name = invites.pop(username)
+                    g_name, inviter = invites.pop(username)
                     if g_name in groups:
-                        groups[g_name].append(writer)
-                        await broadcast(f"[{current_t}] [Notification] {username} joined the group '{g_name}'\n", target_writers=groups[g_name])
+                        if writer in groups[g_name]: #chỉnh sửa chỗ này
+                            writer.write(f"[{current_t}] [Notification] You are already a member of group '{g_name}'.\n".encode())
+                        else:
+                            groups[g_name].append(writer)
+                            await broadcast(f"[{current_t}] [Notification] {username} joined the group '{g_name}'\n", target_writers=groups[g_name])
+                    else:
+                        writer.write(f"[{current_t}] [Notification] Group '{g_name}' no longer exists.\n".encode())
                 else:
                     writer.write(f"[{current_t}] [Notification] No pending invites.\n".encode())
                 await writer.drain()
 
+            # phần /reject
             elif msg == "/reject":
                 if username in invites:
-                    invites.pop(username)
+                    g_name, inviter = invites.pop(username)
+                    inviter_writer = next((w for w, n in clients.items() if n == inviter), None)
+                    if inviter_writer:
+                        inviter_writer.write(f"[{current_t}] [Notification] {username} rejected your invite to group '{g_name}'.\n".encode())
+                        await inviter_writer.drain()
+                    
                     writer.write(f"[{current_t}] [Notification] Invite rejected.\n".encode())
                 else:
                     writer.write(f"[{current_t}] [Notification] No pending invites.\n".encode())
                 await writer.drain()
 
+            # phần /leave
+            elif msg.startswith("/leave "):
+                parts = msg.split(" ", 1)
+                if len(parts) < 2:
+                    writer.write(f"[{current_t}] [Notification] Usage: /leave <group_name>\n".encode())
+                    await writer.drain()
+                    continue
+                g_name = parts[1].strip().lower()
+                if g_name in groups and writer in groups[g_name]:
+                    groups[g_name].remove(writer)
+                    writer.write(f"[{current_t}] [Notification] You left the group '{g_name}'.\n".encode())
+                    await writer.drain()
+                    await broadcast(f"[{current_t}] [Notification] {username} has left the group '{g_name}'\n", target_writers=groups[g_name])
+                else:
+                    writer.write(f"[{current_t}] [Notification] You are not in group '{g_name}'.\n".encode())
+                await writer.drain()
+
+            # phần /kick
+            elif msg.startswith("/kick "):
+                parts = msg.split(" ")
+                if len(parts) < 3:
+                    writer.write(f"[{current_t}] [Notification] Usage: /kick <group_name> <username>\n".encode())
+                    await writer.drain()
+                    continue
+                g_name, target_name = parts[1].lower(), parts[2].lower()
+                
+                if g_name in groups:
+                    if groups[g_name][0] == writer: # Kiểm tra chủ nhóm
+                        target_writer = next((w for w, n in clients.items() if n == target_name), None)
+                        if target_writer and target_writer in groups[g_name]:
+                            if target_writer == writer:
+                                writer.write(f"[{current_t}] [Notification] You cannot kick yourself.\n".encode())
+                            else:
+                                groups[g_name].remove(target_writer)
+                                target_writer.write(f"[{current_t}] [Notification] You have been kicked from group '{g_name}' by owner.\n".encode())
+                                await target_writer.drain()
+                                await broadcast(f"[{current_t}] [Notification] {target_name} has been kicked from the group by owner.\n", target_writers=groups[g_name])
+                        else:
+                            writer.write(f"[{current_t}] [Notification] User '{target_name}' is not in this group.\n".encode())
+                    else:
+                        writer.write(f"[{current_t}] [Notification] Quyen han: Chi chu nhom moi co quyen kick thành viên.\n".encode())
+                else:
+                    writer.write(f"[{current_t}] [Notification] Nhom '{g_name}' khong ton tai.\n".encode())
+                await writer.drain()
+
+            # phần /delete
+            elif msg.startswith("/delete "):
+                parts = msg.split(" ", 1)
+                if len(parts) < 2:
+                    writer.write(f"[{current_t}] [Notification] Usage: /delete <group_name>\n".encode())
+                    await writer.drain()
+                    continue
+                g_name = parts[1].strip().lower()
+                if g_name in groups:
+                    if groups[g_name][0] == writer:
+                        await broadcast(f"[{current_t}] [Notification] Group '{g_name}' has been deleted by owner.\n", target_writers=groups[g_name])
+                        del groups[g_name]
+                        print(f"[{current_t}] [SERVER INFO] Group '{g_name}' was deleted by {username}")
+                    else:
+                        writer.write(f"[{current_t}] [Notification] Quyen han: Chi chu nhom moi co the xoa nhom nay.\n".encode())
+                else:
+                    writer.write(f"[{current_t}] [Notification] Nhom '{g_name}' khong ton tai.\n".encode())
+                await writer.drain()
+
+            # phần /members
+            elif msg.startswith("/members "):
+                parts = msg.split(" ", 1)
+                if len(parts) < 2:
+                    writer.write(f"[{current_t}] [Notification] Usage: /members <group_name>\n".encode())
+                    await writer.drain()
+                    continue
+                g_name = parts[1].strip().lower()
+                if g_name in groups:
+                    member_names = [clients[w] for w in groups[g_name] if w in clients]
+                    writer.write(f"[{current_t}] Members in '{g_name}': {', '.join(member_names)}\n".encode())
+                else:
+                    writer.write(f"[{current_t}] [Notification] Group '{g_name}' does not exist.\n".encode())
+                await writer.drain()
+
+            # phần /groups
+            elif msg == "/groups":
+                joined_groups = [name for name, members in groups.items() if writer in members]
+                if joined_groups:
+                    writer.write(f"[{current_t}] You are in groups: {', '.join(joined_groups)}\n".encode())
+                else:
+                    writer.write(f"[{current_t}] You haven't joined any groups yet.\n".encode())
+                await writer.drain()
+
+            # phần /g
             elif msg.startswith("/g "):
                 parts = msg.split(" ", 2)
                 if len(parts) < 3:
@@ -137,6 +248,7 @@ async def handle_client(reader, writer):
                     writer.write(f"[{current_t}] [Notification] Not a member of this group.\n".encode())
                 await writer.drain()
 
+            # phần /rename
             elif msg.startswith("/rename "):
                 parts = msg.split(" ", 1)
                 if len(parts) < 2:
@@ -156,15 +268,16 @@ async def handle_client(reader, writer):
                     await broadcast(f"[{current_t}] [Notification] '{old_username}' changed name to '{new_username}'\n", sender=new_username)
                 await writer.drain()
 
+            # phần /exit
             elif msg.startswith("/exit") or msg.startswith("/quit"):
                 break
 
-            # --- TÍNH NĂNG MỚI: BÁO LỖI LỆNH LẠ ---
+            # phần báo lỗi lệnh lạ
             elif msg.startswith("/"):
                 writer.write(f"[{current_t}] [Notification] Loi cu phap: Lenh '{msg.split()[0]}' khong ton tai.\n".encode())
                 await writer.drain()
-            # ------------------------------------
 
+            # phần chat chung
             else:
                 await broadcast(f"[{current_t}] [{username}] {msg}\n", username)
 
